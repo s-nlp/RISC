@@ -10,8 +10,7 @@ The repository is based on the paper **“Boosting Self-Consistency with Ranking
   <img src="Images/3datasets_compare_stars.png" alt="RISC performance in comparison to baselines." width="100%">
 </p>
 
-**Figure.** Comparison of RISC against the Self-Consistency, Stable Rank, ReASC, and CISC on three datasets.RISC consistently outperforms the baselines on the QA datasets across all LLM call budgets, while remaining
-competitive on MATH500.
+**Figure.** Comparison of RISC against the Self-Consistency, Stable Rank, ReASC, and CISC on three datasets. RISC consistently outperforms the baselines on the QA datasets across all LLM call budgets, while remaining competitive on MATH500.
 
 ## Repository structure
 
@@ -39,6 +38,9 @@ competitive on MATH500.
 
 - `ablation_rerankers_fast_no_search_updated_paths_two_ablation.py`  
   Full model, leave-one-feature-out, and optional leave-two-features-out ablations.
+
+- `data_samples/`  
+  Example labeled input CSV files for testing the feature-export pipeline.
 
 ## Features
 
@@ -106,6 +108,24 @@ Embedding caches are loaded from:
 - otherwise the dataset default cache path in `run_feature_sets_fast.py`
 
 If the cache file does not exist, the script starts from an empty cache and can save it at the end.
+
+### Required columns in the initial CSV
+
+For raw labeled CSV input, the feature-export pipeline expects the following columns:
+
+- `id`
+- `question`
+- `final_answer_new`
+- `rationale`
+- `row_hit`
+
+Notes:
+- `id` is mandatory and is used as the question or group identifier.
+- `final_answer_new` is the answer column expected by the current export pipeline.
+- `row_hit` is the supervision label used downstream for ranking and evaluation.
+- `rationale` is the part of reasoning without final answer.
+
+Data example for two traces can be found in data_samples folder.
 
 ### Train export
 
