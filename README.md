@@ -7,11 +7,11 @@ The repository is based on the paper **“Boosting Self-Consistency with Ranking
 ## Main result
 
 <p align="center">
-  <img src="Images/3datasets_compare_stars.pdf" alt="Comparison of RISC against the Self-Consistency, Stable Rank, ReASC, and CISC on three datasets.RISC consistently outperforms the baselines on the QA datasets across all LLM call budgets, while remaining
-competitive on MATH500." width="100%">
+  <img src="Images/3datasets_compare_stars.png" alt="RISC performance in comparison to baselines." width="100%">
 </p>
 
-**Figure.** Accuracy versus the number of sampled responses on PopQA for self-consistency and RISC. RISC consistently achieves higher accuracy while substantially reducing computational cost: with only 18 samples, it already surpasses the performance of self-consistency with 99 samples. It also delivers systematic accuracy gains over self-consistency across the full range of LLM-call budgets.
+**Figure.** Comparison of RISC against the Self-Consistency, Stable Rank, ReASC, and CISC on three datasets.RISC consistently outperforms the baselines on the QA datasets across all LLM call budgets, while remaining
+competitive on MATH500.
 
 ## Repository structure
 
