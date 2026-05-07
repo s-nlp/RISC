@@ -123,23 +123,10 @@ Notes:
 - `id` is mandatory and is used as the question or group identifier.
 - `final_answer_new` is the answer column expected by the current export pipeline.
 - `row_hit` is the supervision label used downstream for ranking and evaluation.
-- A call-order column such as `call_idx` can be useful, but it is not required by the current wrapper.
+- `rationale` is a part of reasoning without final answer.
 
-### Example data location
+Example of input data is provided in data_samples folder.
 
-You can place example labeled CSV files in the repository folder:
-
-```text
-data_samples/
-```
-
-For example, a labeled MATH500 test sample can be stored as:
-
-```text
-data_samples/math500_test_sample.csv
-```
-
-This makes it easy to test feature export locally before running the full pipeline.
 
 ### Train export
 
