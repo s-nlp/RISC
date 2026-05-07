@@ -1,23 +1,16 @@
-# Ranking Improved Self-Consistency (RISC)
+# Ranking Improved Self-Consistency
 
-This repository contains code for **Ranking Improved Self-Consistency (RISC)**.
+This repository contains the code for **Ranking Improved Self-Consistency (RISC)**.
 
-The implementation is based on the paper **“Boosting Self-Consistency with Ranking”**, accepted to **ACL SRW 2026**.
+The repository is based on the paper **“Boosting Self-Consistency with Ranking”**, accepted to **ACL SRW 2026**.
 
 ## Main result
 
-```latex
-\begin{figure*}[t!]
-    \centering
-    \includegraphics[trim=.25cm .35cm .5cm .25cm, clip, width=\linewidth]{Images/3datasets_compare_stars.pdf}
-    \caption{Comparison of RISC against the Self-Consistency, Stable Rank, ReASC, and CISC on three datasets. RISC consistently outperforms the baselines on the QA datasets across all LLM call budgets, while remaining competitive on MATH500.
-    }
-    \label{fig:baselines_comparison}
-    \vspace{-0.5cm}
-\end{figure*}
-```
+<p align="center">
+  <img src="Images/popqa_vertical_two_panel_fin_risc.png" alt="Accuracy versus the number of sampled responses on PopQA for self-consistency and RISC" width="100%">
+</p>
 
-
+**Figure.** Accuracy versus the number of sampled responses on PopQA for self-consistency and RISC. RISC consistently achieves higher accuracy while substantially reducing computational cost: with only 18 samples, it already surpasses the performance of self-consistency with 99 samples. It also delivers systematic accuracy gains over self-consistency across the full range of LLM-call budgets.
 
 ## Repository structure
 
@@ -28,7 +21,12 @@ The implementation is based on the paper **“Boosting Self-Consistency with Ran
   Dataset loading and dataset config source of truth.
 
 - `reranker_configs.py`  
-  Shared reranker configs: dataset cache paths, feature sets, default LightGBM parameters, parameter grid, and `make_feature_cfg(...)`.
+  Shared reranker configs:
+  - dataset cache paths
+  - feature sets
+  - default LightGBM parameters
+  - LightGBM hyperparameter grid
+  - `make_feature_cfg(...)`
 
 - `export_fixed5_feature_tables_one_split.py`  
   Export one split at a time:
@@ -43,72 +41,58 @@ The implementation is based on the paper **“Boosting Self-Consistency with Ran
 
 ## Features
 
-The main feature set uses five signals.
+The main feature set uses the following five signals.
 
-### Vote concentration: `share_ratio_to_best`
+### 1. Vote concentration: `share_ratio_to_best`
 
-Let \( c(a) \) be the number of sampled chains that end with answer \( a \), and let \( a^\star \) be the most frequent answer for the current question. Then
+`share_ratio_to_best(a) = c(a) / c(a*)`
 
-\[
-\texttt{share\_ratio\_to\_best}(a) = \frac{c(a)}{c(a^\star)}.
-\]
+where:
+- `c(a)` is the number of sampled chains that end with answer `a`
+- `a*` is the most frequent answer for the current question
 
-This measures how close the candidate answer’s support is to the strongest vote winner.
+This measures how close the candidate answer's support is to the strongest vote winner.
 
-### Minimum answer length: `ans_len_min`
+### 2. Minimum answer length: `ans_len_min`
 
-For all sampled traces that produce answer \( a \), let \( \ell(r) \) denote the answer length of trace \( r \). Then
+`ans_len_min(a) = min_r len(r)`
 
-\[
-\texttt{ans\_len\_min}(a) = \min_{r : \mathrm{ans}(r)=a} \ell(r).
-\]
+where the minimum is taken over all sampled traces `r` that produce answer `a`.
 
 This captures the shortest formulation observed for the candidate answer.
 
-### Distance to answer centroid: `ans_dist2_to_id_centroid`
+### 3. Distance to answer centroid: `ans_dist2_to_id_centroid`
 
-Let \( e_r \in \mathbb{R}^d \) be the embedding of a sampled answer trace \( r \) for the same question, and let
+`ans_dist2_to_id_centroid(a) = ||e_a - mu_id||^2`
 
-\[
-\mu_{\text{id}} = \frac{1}{N}\sum_{r=1}^{N} e_r
-\]
+where:
+- `e_a` is the embedding of candidate answer `a`
+- `mu_id` is the centroid of all sampled answer embeddings for the same question
 
-be the centroid over all sampled traces for that question. For candidate answer \( a \) with embedding \( e_a \),
+Lower values mean the candidate answer lies closer to the overall semantic center of the sampled responses.
 
-\[
-\texttt{ans\_dist2\_to\_id\_centroid}(a) = \lVert e_a - \mu_{\text{id}} \rVert_2^2.
-\]
+### 4. Step-to-chain centroid coherence: `step_to_chain_centroid_min`
 
-Lower values indicate that the candidate answer lies closer to the overall semantic center of the sampled responses.
+`step_to_chain_centroid_min = min_t cos(s_t, mu_chain)`
 
-### Step-to-chain centroid coherence: `step_to_chain_centroid_min`
+where:
+- `s_t` is the embedding of reasoning step `t`
+- `mu_chain` is the centroid of all step embeddings in the chain
 
-Let a chain contain step embeddings \( s_1, \dots, s_T \), and let
+This feature measures the weakest local coherence of any reasoning step with respect to the overall chain semantics.
 
-\[
-\mu_{\text{chain}} = \frac{1}{T}\sum_{t=1}^{T} s_t
-\]
+### 5. Shared checkpoints across traces: `shared_checkpoint_count`
 
-be the centroid of the chain. Then
+`shared_checkpoint_count = sum_i 1[p_i is shared]`
 
-\[
-\texttt{step\_to\_chain\_centroid\_min} = \min_{t \in \{1,\dots,T\}} \cos(s_t, \mu_{\text{chain}}).
-\]
+where:
+- `p_i` is a prefix checkpoint
+- `1[...]` is an indicator that equals 1 when the checkpoint is supported by semantically aligned prefixes from other traces
 
-This feature measures the weakest local coherence of a reasoning step with respect to the overall chain semantics.
-
-### Shared checkpoints across traces: `shared_checkpoint_count`
-
-For each prefix point \( p_i \) in a trace, define a checkpoint if it matches prefixes from other traces with:
-- cosine similarity above a threshold,
-- depth difference within a tolerance,
-- and enough relative support across distinct traces.
-
-If \( \mathbb{1}[p_i \text{ is shared}] \) indicates that prefix \( p_i \) is a supported checkpoint, then
-
-\[
-\texttt{shared\_checkpoint\_count} = \sum_i \mathbb{1}[p_i \text{ is shared}].
-\]
+A checkpoint is counted as shared when it matches prefixes from other traces with:
+- cosine similarity above a threshold
+- depth difference within a tolerance
+- enough relative support across distinct traces
 
 This counts how many semantically aligned intermediate reasoning checkpoints are shared across independent sampled traces.
 
@@ -139,6 +123,8 @@ python export_fixed5_feature_tables_one_split.py \
 
 ### Test export
 
+With explicit test budgets:
+
 ```bash
 python export_fixed5_feature_tables_one_split.py \
   --dataset hotpotqa \
@@ -159,20 +145,26 @@ This step uses already prepared feature pickles.
 Inputs:
 - `--train-features-path`
 - `--test-features-path`
-- `--prepared-metadata-path` — this should point to the **train metadata JSON**
+- `--prepared-metadata-path` → should point to the **train metadata JSON**
 
 What happens inside:
-- loads prepared train/test features,
-- optionally runs LightGBM hyperparameter search on a train/validation split of the prepared train table,
-- refits on the full prepared train table,
-- scores the test table budget-by-budget,
-- saves reranker, scores, best params, and metadata.
+- loads prepared train/test features
+- optionally runs LightGBM hyperparameter search on a train/validation split of the prepared train table
+- refits on the full prepared train table
+- scores the test table budget-by-budget
+- saves reranker, scores, best params, and metadata
 
 ### Hyperparameter search
 
-By default, hyperparameter search is enabled and uses `DEFAULT_LGB_PARAMS` and `PARAM_GRID` from `reranker_configs.py`.
+By default, hyperparameter search is enabled and uses:
+- `DEFAULT_LGB_PARAMS`
+- `PARAM_GRID`
+from `reranker_configs.py`
 
-To skip search and use defaults directly, add `--no-hparam-search`.
+To skip search and use defaults directly, add:
+- `--no-hparam-search`
+
+Example:
 
 ```bash
 python run_feature_sets_fast_custom_feature_paths.py \
@@ -195,11 +187,16 @@ python run_feature_sets_fast_custom_feature_paths.py \
 ## Feature ablations
 
 The ablation script supports:
-- the full model,
-- leave-one-feature-out variants,
-- optional leave-two-features-out variants via `--include-two-feature-ablation`.
+- full model
+- leave-one-feature-out variants
+- optional leave-two-features-out variants via `--include-two-feature-ablation`
 
-It can load explicit feature-table paths, reuse signature-matched cached feature tables, or recompute them if allowed.
+It can:
+- load explicit feature-table paths
+- reuse signature-matched cached feature tables
+- or recompute them if allowed
+
+Example:
 
 ```bash
 python ablation_rerankers_fast_no_search_updated_paths_two_ablation.py \
